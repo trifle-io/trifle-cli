@@ -1,0 +1,13 @@
+run:
+  timeout: 3m
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - govet
+    - ineffassign
+    - unused
+
+issues:
+  exclude-use-default: false
