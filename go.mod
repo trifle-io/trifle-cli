@@ -3,7 +3,7 @@ module github.com/trifle-io/trifle-cli
 go 1.22
 
 require (
-	github.com/trifle-io/trifle_stats_go v0.0.0
+	github.com/trifle-io/trifle_stats_go v0.0.0-20260130194303-e8712107b972
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -28,5 +28,3 @@ require (
 	modernc.org/strutil v1.1.3 // indirect
 	modernc.org/token v1.0.1 // indirect
 )
-
-replace github.com/trifle-io/trifle_stats_go => ../trifle_stats_go
