@@ -139,7 +139,7 @@ func toStringSlice(value any) []string {
 
 	out := make([]string, 0, len(list))
 	for _, item := range list {
-		out = append(out, fmt.Sprint(item))
+		out = append(out, formatCell(item))
 	}
 	return out
 }
@@ -158,7 +158,7 @@ func toStringMatrix(value any, columns int) [][]string {
 		}
 		row := make([]string, 0, columns)
 		for _, cell := range list {
-			row = append(row, fmt.Sprint(cell))
+			row = append(row, formatCell(cell))
 		}
 		if len(row) < columns {
 			for len(row) < columns {
@@ -169,6 +169,19 @@ func toStringMatrix(value any, columns int) [][]string {
 	}
 
 	return rows
+}
+
+func formatCell(value any) string {
+	if value == nil {
+		return ""
+	}
+
+	switch v := value.(type) {
+	case json.Number:
+		return v.String()
+	default:
+		return fmt.Sprint(value)
+	}
 }
 
 func padRight(value string, width int) string {

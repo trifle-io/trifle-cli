@@ -155,7 +155,9 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any, o
 		return nil
 	}
 
-	if err := json.Unmarshal(responseBody, out); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(responseBody))
+	decoder.UseNumber()
+	if err := decoder.Decode(out); err != nil {
 		return fmt.Errorf("decode response: %w", err)
 	}
 
