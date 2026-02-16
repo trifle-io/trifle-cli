@@ -1,6 +1,6 @@
 # Trifle CLI
 
-Query and push time-series metrics from your terminal. Works with [Trifle App](https://trifle.io/product-app) via API or directly against local databases (SQLite, Postgres, MySQL, Redis, MongoDB). Ships an MCP server mode for AI agent integration.
+Query and push time-series metrics from your terminal. Works with [Trifle App](https://trifle.io/product/app) via API or directly against local databases (SQLite, Postgres, MySQL, Redis, MongoDB). Ships an MCP server mode for AI agent integration.
 
 Part of the [Trifle](https://trifle.io) ecosystem.
 
@@ -70,7 +70,7 @@ Run Trifle CLI as an MCP server so AI agents (Claude, GPT, etc.) can query and t
 trifle mcp serve
 ```
 
-This enables AI agents to read your analytics, track their own token/cost usage, and generate insights — all through the standard MCP protocol.
+This enables AI agents to read your analytics, track their own token/cost usage, and generate insights through the standard MCP protocol.
 
 ## Buffering
 
@@ -94,7 +94,7 @@ Full reference at **[docs.trifle.io/trifle-cli](https://docs.trifle.io/trifle-cl
 
 | Component | What it does |
 |-----------|-------------|
-| **[Trifle App](https://trifle.io/product-app)** | Dashboards, alerts, scheduled reports, AI-powered chat. Cloud or self-hosted. |
+| **[Trifle App](https://trifle.io/product/app)** | Dashboards, alerts, scheduled reports, AI-powered chat. Cloud or self-hosted. |
 | **[Trifle::Stats (Ruby)](https://github.com/trifle-io/trifle-stats)** | Time-series metrics library for Ruby. |
 | **[Trifle.Stats (Elixir)](https://github.com/trifle-io/trifle_stats)** | Time-series metrics library for Elixir. |
 | **[Trifle Stats (Go)](https://github.com/trifle-io/trifle_stats_go)** | Time-series metrics library for Go. |
