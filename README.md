@@ -105,4 +105,4 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/trifle
 
 ## License
 
-Available under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+Available under the [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license). See [LICENSE](LICENSE) for details.
