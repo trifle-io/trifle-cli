@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +21,16 @@ import (
 )
 
 var version = "0.1.0-dev"
+
+func resolveVersion() string {
+	if version != "0.1.0-dev" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "(devel)" && info.Main.Version != "" {
+		return info.Main.Version
+	}
+	return version
+}
 
 var granularityPattern = regexp.MustCompile(`^\d+(s|m|h|d|w|mo|q|y)$`)
 
@@ -37,7 +48,7 @@ func main() {
 	case "mcp":
 		runMCP(os.Args[2:])
 	case "version":
-		fmt.Println(version)
+		fmt.Println(resolveVersion())
 	case "help", "-h", "--help":
 		usage()
 	default:
