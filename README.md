@@ -8,10 +8,22 @@ Part of the [Trifle](https://trifle.io) ecosystem.
 
 ## Install
 
-Download a release from [GitHub Releases](https://github.com/trifle-io/trifle-cli/releases) and place `trifle` on your PATH.
+**Homebrew** (macOS/Linux):
+```sh
+brew install trifle-io/trifle/trifle
+```
 
-Or build locally (Go 1.24+):
+**Shell script** (macOS/Linux):
+```sh
+curl -sSL https://get.trifle.io | sh
+```
 
+**Go**:
+```sh
+go install github.com/trifle-io/trifle-cli@latest
+```
+
+**Build locally** (Go 1.24+):
 ```sh
 go build -o trifle .
 ```
