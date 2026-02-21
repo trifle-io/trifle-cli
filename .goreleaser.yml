@@ -29,6 +29,20 @@ archives:
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
 
+brews:
+  - repository:
+      owner: trifle-io
+      name: homebrew-trifle
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://trifle.io"
+    description: "CLI for Trifle time-series metrics"
+    license: "ELv2"
+    install: |
+      bin.install "trifle"
+    test: |
+      system "#{bin}/trifle", "version"
+
 changelog:
   sort: asc
   filters:
