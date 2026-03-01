@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -15,11 +16,13 @@ import (
 const (
 	defaultTimeout = 30 * time.Second
 	apiBasePath    = "/api/v1"
+	cliUserAgent   = "trifle-cli"
 )
 
 type Client struct {
 	baseURL string
 	token   string
+	host    string
 	http    *http.Client
 }
 
@@ -53,6 +56,7 @@ func New(baseURL, token string, timeout time.Duration) (*Client, error) {
 	return &Client{
 		baseURL: normalized,
 		token:   token,
+		host:    clientHost(),
 		http: &http.Client{
 			Timeout: timeout,
 		},
@@ -95,6 +99,42 @@ func (c *Client) DeleteTransponder(ctx context.Context, id string, out any) erro
 	return c.doJSON(ctx, http.MethodDelete, apiBasePath+"/transponders/"+id, nil, out)
 }
 
+func (c *Client) BootstrapSignup(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/signup", payload, out)
+}
+
+func (c *Client) BootstrapLogin(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/login", payload, out)
+}
+
+func (c *Client) BootstrapMe(ctx context.Context, out any) error {
+	return c.doJSON(ctx, http.MethodGet, apiBasePath+"/bootstrap/me", nil, out)
+}
+
+func (c *Client) BootstrapCreateOrganization(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/organizations", payload, out)
+}
+
+func (c *Client) BootstrapListSources(ctx context.Context, out any) error {
+	return c.doJSON(ctx, http.MethodGet, apiBasePath+"/bootstrap/sources", nil, out)
+}
+
+func (c *Client) BootstrapCreateDatabase(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/databases", payload, out)
+}
+
+func (c *Client) BootstrapSetupDatabase(ctx context.Context, id string, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/databases/"+id+"/setup", map[string]any{}, out)
+}
+
+func (c *Client) BootstrapCreateProject(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/projects", payload, out)
+}
+
+func (c *Client) BootstrapCreateSourceToken(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/source-tokens", payload, out)
+}
+
 func (c *Client) doJSON(ctx context.Context, method, path string, payload any, out any) error {
 	fullURL := c.baseURL + path
 
@@ -127,6 +167,10 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any, o
 
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	req.Header.Set("User-Agent", cliUserAgent)
+	if c.host != "" {
+		req.Header.Set("X-Trifle-Client-Host", c.host)
 	}
 	if method != http.MethodGet {
 		req.Header.Set("Content-Type", "application/json")
@@ -175,4 +219,13 @@ func normalizeBaseURL(baseURL string) string {
 	}
 
 	return strings.TrimRight(baseURL, "/")
+}
+
+func clientHost() string {
+	host, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(host)
 }

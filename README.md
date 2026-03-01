@@ -30,6 +30,18 @@ go build -o trifle .
 
 ## Quick Usage
 
+### Bootstrap Trifle App access
+
+```sh
+# Login (stores user token in config)
+trifle auth login --url https://app.trifle.io --email user@example.com --password '<password>'
+
+# Create a source and mint a source token
+trifle source create project --name "Agent Project"
+trifle source list
+trifle source token create --source-type project --source-id <PROJECT_ID> --save --activate
+```
+
 ### Query metrics from Trifle App
 
 ```sh

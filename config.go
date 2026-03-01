@@ -14,13 +14,24 @@ import (
 
 type cliConfig struct {
 	Source  string
+	Auth    *authConfig
 	Sources map[string]sourceConfig
+}
+
+type authConfig struct {
+	URL            string `yaml:"url"`
+	UserToken      string `yaml:"user_token"`
+	Email          string `yaml:"email"`
+	OrganizationID string `yaml:"organization_id"`
+	UserID         string `yaml:"user_id"`
 }
 
 type sourceConfig struct {
 	Driver          string            `yaml:"driver"`
 	URL             string            `yaml:"url"`
 	Token           string            `yaml:"token"`
+	SourceType      string            `yaml:"source_type"`
+	SourceID        string            `yaml:"source_id"`
 	Timeout         string            `yaml:"timeout"`
 	DB              string            `yaml:"db"`
 	DSN             string            `yaml:"dsn"`
@@ -92,6 +103,12 @@ func (c *cliConfig) UnmarshalYAML(value *yaml.Node) error {
 				}
 				c.Sources[name] = src
 			}
+		case "auth":
+			var auth authConfig
+			if err := valNode.Decode(&auth); err != nil {
+				return err
+			}
+			c.Auth = &auth
 		case "driver":
 			if valNode.Kind == yaml.ScalarNode {
 				if err := valNode.Decode(&legacyDriver); err != nil {
@@ -464,4 +481,79 @@ func resolveCommandConfig(args []string) (resolvedConfig, error) {
 		Source:     sourceCfg,
 		ConfigPath: configPath,
 	}, nil
+}
+
+type persistedConfig struct {
+	Source  string                  `yaml:"source,omitempty"`
+	Auth    *authConfig             `yaml:"auth,omitempty"`
+	Sources map[string]sourceConfig `yaml:"sources,omitempty"`
+}
+
+func resolveConfigPathForWrite(configPath string) (string, error) {
+	configPath = strings.TrimSpace(configPath)
+	if configPath == "" {
+		path, err := defaultConfigPath()
+		if err != nil {
+			return "", err
+		}
+		configPath = path
+	}
+
+	expanded, err := expandPath(configPath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(expanded), nil
+}
+
+func loadConfigForWrite(configPath string) (*cliConfig, string, error) {
+	path, err := resolveConfigPathForWrite(configPath)
+	if err != nil {
+		return nil, "", err
+	}
+
+	cfg, err := loadConfigFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			cfg = &cliConfig{}
+		} else {
+			return nil, "", err
+		}
+	}
+
+	if cfg.Sources == nil {
+		cfg.Sources = map[string]sourceConfig{}
+	}
+
+	return cfg, path, nil
+}
+
+func saveConfigFile(path string, cfg *cliConfig) error {
+	if cfg == nil {
+		cfg = &cliConfig{}
+	}
+	if cfg.Sources == nil {
+		cfg.Sources = map[string]sourceConfig{}
+	}
+
+	data := persistedConfig{
+		Source:  strings.TrimSpace(cfg.Source),
+		Auth:    cfg.Auth,
+		Sources: cfg.Sources,
+	}
+
+	encoded, err := yaml.Marshal(&data)
+	if err != nil {
+		return fmt.Errorf("encode config %s: %w", path, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create config dir %s: %w", filepath.Dir(path), err)
+	}
+
+	if err := os.WriteFile(path, encoded, 0o600); err != nil {
+		return fmt.Errorf("write config %s: %w", path, err)
+	}
+
+	return nil
 }

@@ -41,6 +41,10 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "auth":
+		runAuth(os.Args[2:])
+	case "source":
+		runSource(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
 	case "transponders":
@@ -1740,6 +1744,8 @@ func usage() {
 	fmt.Println("  trifle metrics get --driver redis --prefix trifle:metrics --key event::logs --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
 	fmt.Println()
 	fmt.Println("Commands:")
+	fmt.Println("  auth           Authenticate and manage bootstrap access")
+	fmt.Println("  source         Manage Trifle App sources and source tokens")
 	fmt.Println("  metrics        Query or push metrics")
 	fmt.Println("  transponders   Manage transponders")
 	fmt.Println("  mcp            MCP server mode")
