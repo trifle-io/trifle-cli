@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -287,6 +288,7 @@ func sourceCreateDatabase(args []string) {
 	password := fs.String("password", "", "Database password")
 	database := fs.String("database", "", "Database name")
 	filePath := fs.String("file-path", "", "SQLite file path")
+	sqliteFile := fs.String("sqlite-file", "", "SQLite file to upload")
 	authDatabase := fs.String("auth-database", "", "Mongo auth database")
 	timeZone := fs.String("timezone", "", "Source time zone")
 	defaultTimeframe := fs.String("default-timeframe", "", "Default timeframe (for example 7d)")
@@ -298,8 +300,17 @@ func sourceCreateDatabase(args []string) {
 	if strings.TrimSpace(*displayName) == "" {
 		exitError(errors.New("--display-name is required"))
 	}
-	if strings.TrimSpace(*driver) == "" {
+	driverName := strings.ToLower(strings.TrimSpace(*driver))
+	if driverName == "" {
 		exitError(errors.New("--driver is required"))
+	}
+	if strings.TrimSpace(*sqliteFile) != "" && driverName != "sqlite" {
+		exitError(errors.New("--sqlite-file is only supported with --driver sqlite"))
+	}
+	if strings.TrimSpace(*sqliteFile) != "" {
+		if _, err := os.Stat(strings.TrimSpace(*sqliteFile)); err != nil {
+			exitError(fmt.Errorf("sqlite file is not readable: %w", err))
+		}
 	}
 
 	client, err := bootstrapClient(*url, *userToken, *timeout)
@@ -307,9 +318,14 @@ func sourceCreateDatabase(args []string) {
 		exitError(err)
 	}
 
+	driverValue := strings.TrimSpace(*driver)
+	if driverValue == "" {
+		driverValue = driverName
+	}
+
 	payload := map[string]any{
 		"display_name": strings.TrimSpace(*displayName),
-		"driver":       strings.TrimSpace(*driver),
+		"driver":       driverValue,
 	}
 	maybePutString(payload, "host", *host)
 	if *port > 0 {
@@ -328,8 +344,38 @@ func sourceCreateDatabase(args []string) {
 	}
 
 	var response map[string]any
-	if err := client.BootstrapCreateDatabase(context.Background(), payload, &response); err != nil {
-		exitError(err)
+	if strings.TrimSpace(*sqliteFile) != "" {
+		fields := map[string]string{
+			"display_name": strings.TrimSpace(*displayName),
+			"driver":       driverValue,
+		}
+		maybePutMultipartField(fields, "host", *host)
+		maybePutMultipartField(fields, "port", intToString(*port))
+		maybePutMultipartField(fields, "username", *username)
+		maybePutMultipartField(fields, "password", *password)
+		maybePutMultipartField(fields, "database_name", *database)
+		maybePutMultipartField(fields, "file_path", *filePath)
+		maybePutMultipartField(fields, "auth_database", *authDatabase)
+		maybePutMultipartField(fields, "time_zone", *timeZone)
+		maybePutMultipartField(fields, "default_timeframe", *defaultTimeframe)
+		maybePutMultipartField(fields, "default_granularity", *defaultGranularity)
+		if list := parseGranularities(*granularities); list != nil {
+			fields["granularities"] = strings.Join(list, ",")
+		}
+
+		if err := client.BootstrapCreateDatabaseMultipart(
+			context.Background(),
+			fields,
+			"sqlite_file",
+			strings.TrimSpace(*sqliteFile),
+			&response,
+		); err != nil {
+			exitError(err)
+		}
+	} else {
+		if err := client.BootstrapCreateDatabase(context.Background(), payload, &response); err != nil {
+			exitError(err)
+		}
 	}
 
 	if err := output.PrintJSON(os.Stdout, response); err != nil {
@@ -703,6 +749,23 @@ func maybePutString(payload map[string]any, key, value string) {
 		return
 	}
 	payload[key] = strings.TrimSpace(value)
+}
+
+func maybePutMultipartField(fields map[string]string, key, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+
+	fields[key] = value
+}
+
+func intToString(value int) string {
+	if value <= 0 {
+		return ""
+	}
+
+	return strconv.Itoa(value)
 }
 
 func attachConfigMeta(payload map[string]any, configPath string) {

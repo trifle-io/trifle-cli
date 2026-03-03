@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -123,6 +125,71 @@ func (c *Client) BootstrapCreateDatabase(ctx context.Context, payload any, out a
 	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/databases", payload, out)
 }
 
+func (c *Client) BootstrapCreateDatabaseMultipart(
+	ctx context.Context,
+	fields map[string]string,
+	fileField string,
+	filePath string,
+	out any,
+) error {
+	filePath = strings.TrimSpace(filePath)
+	if filePath == "" {
+		return fmt.Errorf("missing sqlite file path")
+	}
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	for key, value := range fields {
+		if strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" {
+			continue
+		}
+		if err := writer.WriteField(key, value); err != nil {
+			return fmt.Errorf("encode field %s: %w", key, err)
+		}
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("open sqlite file: %w", err)
+	}
+	defer file.Close()
+
+	part, err := writer.CreateFormFile(fileField, filepath.Base(filePath))
+	if err != nil {
+		return fmt.Errorf("create sqlite file field: %w", err)
+	}
+
+	if _, err := io.Copy(part, file); err != nil {
+		return fmt.Errorf("copy sqlite file: %w", err)
+	}
+
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("finalize multipart payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		c.baseURL+apiBasePath+"/bootstrap/databases",
+		&body,
+	)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	req.Header.Set("User-Agent", cliUserAgent)
+	if c.host != "" {
+		req.Header.Set("X-Trifle-Client-Host", c.host)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	return c.doRequest(req, out)
+}
+
 func (c *Client) BootstrapSetupDatabase(ctx context.Context, id string, out any) error {
 	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/databases/"+id+"/setup", map[string]any{}, out)
 }
@@ -176,6 +243,10 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any, o
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	return c.doRequest(req, out)
+}
+
+func (c *Client) doRequest(req *http.Request, out any) error {
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)

@@ -40,6 +40,9 @@ trifle auth login --url https://app.trifle.io --email user@example.com --passwor
 trifle source create project --name "Agent Project"
 trifle source list
 trifle source token create --source-type project --source-id <PROJECT_ID> --save --activate
+
+# Optional: upload a local SQLite file when creating a database source
+trifle source create database --display-name "SQLite Upload" --driver sqlite --sqlite-file ./metrics.sqlite
 ```
 
 ### Query metrics from Trifle App
