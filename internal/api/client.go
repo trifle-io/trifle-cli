@@ -22,10 +22,11 @@ const (
 )
 
 type Client struct {
-	baseURL string
-	token   string
-	host    string
-	http    *http.Client
+	baseURL  string
+	token    string
+	sourceID string
+	host     string
+	http     *http.Client
 }
 
 type Error struct {
@@ -67,6 +68,10 @@ func New(baseURL, token string, timeout time.Duration) (*Client, error) {
 
 func (c *Client) SetToken(token string) {
 	c.token = token
+}
+
+func (c *Client) SetSourceID(sourceID string) {
+	c.sourceID = strings.TrimSpace(sourceID)
 }
 
 func (c *Client) GetMetrics(ctx context.Context, params map[string]string, out any) error {
@@ -185,6 +190,9 @@ func (c *Client) BootstrapCreateDatabaseMultipart(
 	if c.host != "" {
 		req.Header.Set("X-Trifle-Client-Host", c.host)
 	}
+	if c.sourceID != "" {
+		req.Header.Set("X-Trifle-Source-Id", c.sourceID)
+	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	return c.doRequest(req, out)
@@ -198,8 +206,20 @@ func (c *Client) BootstrapCreateProject(ctx context.Context, payload any, out an
 	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/projects", payload, out)
 }
 
-func (c *Client) BootstrapCreateSourceToken(ctx context.Context, payload any, out any) error {
-	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/source-tokens", payload, out)
+func (c *Client) BootstrapListTokens(ctx context.Context, out any) error {
+	return c.doJSON(ctx, http.MethodGet, apiBasePath+"/bootstrap/tokens", nil, out)
+}
+
+func (c *Client) BootstrapCreateToken(ctx context.Context, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/bootstrap/tokens", payload, out)
+}
+
+func (c *Client) BootstrapUpdateToken(ctx context.Context, id string, payload any, out any) error {
+	return c.doJSON(ctx, http.MethodPut, apiBasePath+"/bootstrap/tokens/"+id, payload, out)
+}
+
+func (c *Client) BootstrapDeleteToken(ctx context.Context, id string, out any) error {
+	return c.doJSON(ctx, http.MethodDelete, apiBasePath+"/bootstrap/tokens/"+id, nil, out)
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path string, payload any, out any) error {
@@ -238,6 +258,9 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any, o
 	req.Header.Set("User-Agent", cliUserAgent)
 	if c.host != "" {
 		req.Header.Set("X-Trifle-Client-Host", c.host)
+	}
+	if c.sourceID != "" {
+		req.Header.Set("X-Trifle-Source-Id", c.sourceID)
 	}
 	if method != http.MethodGet {
 		req.Header.Set("Content-Type", "application/json")

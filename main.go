@@ -17,7 +17,7 @@ import (
 
 	"github.com/trifle-io/trifle-cli/internal/api"
 	"github.com/trifle-io/trifle-cli/internal/output"
-	triflestats "github.com/trifle-io/trifle_stats_go"
+	triflestats "github.com/trifle-io/trifle_stats_go/v2"
 )
 
 var version = "0.1.0-dev"
@@ -45,6 +45,8 @@ func main() {
 		runAuth(os.Args[2:])
 	case "source":
 		runSource(os.Args[2:])
+	case "token":
+		runToken(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
 	case "transponders":
@@ -63,31 +65,41 @@ func main() {
 }
 
 type commonOptions struct {
-	BaseURL string
-	Token   string
-	Timeout time.Duration
+	BaseURL  string
+	Token    string
+	SourceID string
+	Timeout  time.Duration
 }
 
-func addCommonFlags(fs *flag.FlagSet, cfg *sourceConfig) *commonOptions {
+func addCommonFlags(fs *flag.FlagSet, cfg *sourceConfig, rootCfg *cliConfig) *commonOptions {
 	var cfgURL string
 	var cfgToken string
+	var cfgSourceID string
 	timeout := 30 * time.Second
 	if cfg != nil {
 		cfgURL = cfg.URL
 		cfgToken = cfg.Token
+		cfgSourceID = cfg.SourceID
 		if cfg.TimeoutSet {
 			timeout = cfg.TimeoutDuration
 		}
 	}
 
+	var authToken string
+	if rootCfg != nil && rootCfg.Auth != nil {
+		authToken = rootCfg.Auth.UserToken
+	}
+
 	opts := &commonOptions{
-		BaseURL: pickString(os.Getenv("TRIFLE_URL"), cfgURL, ""),
-		Token:   pickString(os.Getenv("TRIFLE_TOKEN"), cfgToken, ""),
-		Timeout: timeout,
+		BaseURL:  pickString(os.Getenv("TRIFLE_URL"), cfgURL, ""),
+		Token:    pickString(os.Getenv("TRIFLE_TOKEN"), pickString(cfgToken, authToken, ""), ""),
+		SourceID: pickString(os.Getenv("TRIFLE_SOURCE_ID"), cfgSourceID, ""),
+		Timeout:  timeout,
 	}
 
 	fs.StringVar(&opts.BaseURL, "url", opts.BaseURL, "Trifle base URL (or TRIFLE_URL / config)")
 	fs.StringVar(&opts.Token, "token", opts.Token, "API token (or TRIFLE_TOKEN / config)")
+	fs.StringVar(&opts.SourceID, "source-id", opts.SourceID, "Source ID for API scope (or TRIFLE_SOURCE_ID / config)")
 	fs.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "HTTP timeout")
 	return opts
 }
@@ -114,7 +126,13 @@ func ensureToken(opts *commonOptions, allowPrompt bool) error {
 }
 
 func newClient(opts *commonOptions) (*api.Client, error) {
-	return api.New(opts.BaseURL, opts.Token, opts.Timeout)
+	client, err := api.New(opts.BaseURL, opts.Token, opts.Timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	client.SetSourceID(opts.SourceID)
+	return client, nil
 }
 
 func runMetrics(args []string) {
@@ -156,7 +174,7 @@ func metricsGet(args []string) {
 	fs := flag.NewFlagSet("metrics get", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	key := fs.String("key", "", "Metrics key (optional)")
 	from := fs.String("from", "", "RFC3339 start timestamp")
@@ -200,7 +218,7 @@ func metricsGet(args []string) {
 			exitError(errors.New("--key is required for local drivers"))
 		}
 
-		result, err := triflestats.Values(cfg, *key, fromTime, toTime, granularityValue, *skipBlanks)
+		result, err := triflestats.Values(context.Background(), cfg, *key, fromTime, toTime, granularityValue, *skipBlanks)
 		if err != nil {
 			exitError(maybeSuggestSetup(err, local.DriverName, local.TableName))
 		}
@@ -262,7 +280,7 @@ func metricsKeys(args []string) {
 	fs := flag.NewFlagSet("metrics keys", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	key := fs.String("key", "", "Metrics key (local drivers default to system keys)")
 	from := fs.String("from", "", "RFC3339 start timestamp")
@@ -302,7 +320,7 @@ func metricsKeys(args []string) {
 			metricKey = systemMetricsKey
 		}
 
-		result, err := triflestats.Values(cfg, metricKey, fromTime, toTime, granularityValue, true)
+		result, err := triflestats.Values(context.Background(), cfg, metricKey, fromTime, toTime, granularityValue, true)
 		if err != nil {
 			exitError(maybeSuggestSetup(err, local.DriverName, local.TableName))
 		}
@@ -412,7 +430,7 @@ func metricsAggregate(args []string) {
 	fs := flag.NewFlagSet("metrics aggregate", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	key := fs.String("key", "", "Metrics key")
 	valuePath := fs.String("value-path", "", "Value path")
@@ -457,7 +475,7 @@ func metricsAggregate(args []string) {
 			exitError(err)
 		}
 
-		seriesResult, err := triflestats.Values(cfg, *key, fromTime, toTime, granularityValue, false)
+		seriesResult, err := triflestats.Values(context.Background(), cfg, *key, fromTime, toTime, granularityValue, false)
 		if err != nil {
 			exitError(maybeSuggestSetup(err, local.DriverName, local.TableName))
 		}
@@ -571,7 +589,7 @@ func metricsTimeline(args []string) {
 	fs := flag.NewFlagSet("metrics timeline", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	key := fs.String("key", "", "Metrics key")
 	valuePath := fs.String("value-path", "", "Value path")
@@ -615,7 +633,7 @@ func metricsTimeline(args []string) {
 			exitError(err)
 		}
 
-		seriesResult, err := triflestats.Values(cfg, *key, fromTime, toTime, granularityValue, false)
+		seriesResult, err := triflestats.Values(context.Background(), cfg, *key, fromTime, toTime, granularityValue, false)
 		if err != nil {
 			exitError(maybeSuggestSetup(err, local.DriverName, local.TableName))
 		}
@@ -702,7 +720,7 @@ func metricsCategory(args []string) {
 	fs := flag.NewFlagSet("metrics category", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	key := fs.String("key", "", "Metrics key")
 	valuePath := fs.String("value-path", "", "Value path")
@@ -746,7 +764,7 @@ func metricsCategory(args []string) {
 			exitError(err)
 		}
 
-		seriesResult, err := triflestats.Values(cfg, *key, fromTime, toTime, granularityValue, false)
+		seriesResult, err := triflestats.Values(context.Background(), cfg, *key, fromTime, toTime, granularityValue, false)
 		if err != nil {
 			exitError(maybeSuggestSetup(err, local.DriverName, local.TableName))
 		}
@@ -833,7 +851,7 @@ func metricsPush(args []string) {
 	fs := flag.NewFlagSet("metrics push", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	key := fs.String("key", "", "Metrics key")
 	at := fs.String("at", "", "RFC3339 timestamp (default: now)")
@@ -1000,7 +1018,7 @@ func transpondersList(args []string) {
 	fs := flag.NewFlagSet("transponders list", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	fs.Parse(args)
 
 	if driverNameFromSource(rc.Source) != "api" {
@@ -1035,7 +1053,7 @@ func transpondersCreate(args []string) {
 	fs := flag.NewFlagSet("transponders create", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	payloadJSON := fs.String("payload", "", "JSON payload for transponder")
 	payloadFile := fs.String("payload-file", "", "Path to JSON file for payload")
 	fs.Parse(args)
@@ -1084,7 +1102,7 @@ func transpondersUpdate(args []string) {
 	fs := flag.NewFlagSet("transponders update", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	id := fs.String("id", "", "Transponder ID")
 	payloadJSON := fs.String("payload", "", "JSON payload for transponder")
 	payloadFile := fs.String("payload-file", "", "Path to JSON file for payload")
@@ -1138,7 +1156,7 @@ func transpondersDelete(args []string) {
 	fs := flag.NewFlagSet("transponders delete", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	id := fs.String("id", "", "Transponder ID")
 	fs.Parse(args)
 
@@ -1683,9 +1701,9 @@ func ensureValuesMap(values any) (map[string]any, error) {
 func performLocalWrite(cfg *triflestats.Config, mode, key string, at time.Time, values map[string]any) error {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case "", "track":
-		return triflestats.Track(cfg, key, at, values)
+		return triflestats.Track(context.Background(), cfg, key, at, values)
 	case "assert":
-		return triflestats.Assert(cfg, key, at, values)
+		return triflestats.Assert(context.Background(), cfg, key, at, values)
 	default:
 		return fmt.Errorf("invalid mode: %s (expected track or assert)", mode)
 	}
@@ -1745,7 +1763,8 @@ func usage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  auth           Authenticate and manage bootstrap access")
-	fmt.Println("  source         Manage Trifle App sources and source tokens")
+	fmt.Println("  source         Manage Trifle App sources")
+	fmt.Println("  token          Manage organization API tokens")
 	fmt.Println("  metrics        Query or push metrics")
 	fmt.Println("  transponders   Manage transponders")
 	fmt.Println("  mcp            MCP server mode")

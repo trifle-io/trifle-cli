@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	triflestats "github.com/trifle-io/trifle_stats_go"
+	triflestats "github.com/trifle-io/trifle_stats_go/v2"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -69,8 +69,6 @@ func loadLocalConfig(opts *driverOptions) (*localDriverRuntime, error) {
 
 	cfg := triflestats.DefaultConfig()
 	cfg.TimeZone = opts.TimeZone
-	cfg.Separator = opts.Separator
-	cfg.JoinedIdentifier = joined
 	cfg.BeginningOfWeek = weekStart
 	cfg.Granularities = parseGranularities(opts.Granularities)
 	applyBufferOptions(cfg, opts, driverName)
@@ -93,7 +91,7 @@ func loadLocalConfig(opts *driverOptions) (*localDriverRuntime, error) {
 		driver := triflestats.NewSQLiteDriver(db, opts.Table, joined)
 		driver.Separator = opts.Separator
 		cfg.Driver = driver
-		runtime.setupFn = driver.Setup
+		runtime.setupFn = func() error { return driver.Setup(context.Background()) }
 		runtime.TableName = driver.TableName
 		return runtime, nil
 
@@ -106,7 +104,7 @@ func loadLocalConfig(opts *driverOptions) (*localDriverRuntime, error) {
 		driver := triflestats.NewPostgresDriver(db, opts.Table, joined)
 		driver.Separator = opts.Separator
 		cfg.Driver = driver
-		runtime.setupFn = driver.Setup
+		runtime.setupFn = func() error { return driver.Setup(context.Background()) }
 		runtime.TableName = driver.TableName
 		return runtime, nil
 
@@ -119,7 +117,7 @@ func loadLocalConfig(opts *driverOptions) (*localDriverRuntime, error) {
 		driver := triflestats.NewMySQLDriver(db, opts.Table, joined)
 		driver.Separator = opts.Separator
 		cfg.Driver = driver
-		runtime.setupFn = driver.Setup
+		runtime.setupFn = func() error { return driver.Setup(context.Background()) }
 		runtime.TableName = driver.TableName
 		return runtime, nil
 

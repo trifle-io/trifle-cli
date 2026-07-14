@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	triflestats "github.com/trifle-io/trifle_stats_go"
+	triflestats "github.com/trifle-io/trifle_stats_go/v2"
 )
 
 func TestIsLocalDriver(t *testing.T) {

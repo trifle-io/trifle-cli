@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	triflestats "github.com/trifle-io/trifle_stats_go"
+	triflestats "github.com/trifle-io/trifle_stats_go/v2"
 )
 
 func buildTimeframePayload(fromValue, toValue, granularity string) map[string]string {

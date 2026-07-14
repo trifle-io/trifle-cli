@@ -15,7 +15,7 @@ func TestSaveConfigFilePersistsAuthAndSources(t *testing.T) {
 		Source: "project-main",
 		Auth: &authConfig{
 			URL:            "https://app.trifle.io",
-			UserToken:      "trf_uat_test",
+			UserToken:      "trf_oat_test",
 			Email:          "user@example.com",
 			OrganizationID: "org-123",
 			UserID:         "user-123",
@@ -43,7 +43,7 @@ func TestSaveConfigFilePersistsAuthAndSources(t *testing.T) {
 	if loaded.Source != "project-main" {
 		t.Fatalf("unexpected active source: %s", loaded.Source)
 	}
-	if loaded.Auth == nil || loaded.Auth.UserToken != "trf_uat_test" {
+	if loaded.Auth == nil || loaded.Auth.UserToken != "trf_oat_test" {
 		t.Fatalf("missing auth token: %#v", loaded.Auth)
 	}
 	source, ok := loaded.Sources["project-main"]

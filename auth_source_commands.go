@@ -76,7 +76,7 @@ func authSignup(args []string) {
 	password := fs.String("password", "", "Account password")
 	name := fs.String("name", "", "Optional user name")
 	orgName := fs.String("org-name", "", "Optional organization name to create")
-	tokenName := fs.String("token-name", "CLI token", "User API token label")
+	tokenName := fs.String("token-name", "CLI token", "Bootstrap token label")
 	save := fs.Bool("save", true, "Save auth token to config")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
@@ -139,7 +139,7 @@ func authLogin(args []string) {
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
 	email := fs.String("email", "", "Account email")
 	password := fs.String("password", "", "Account password")
-	tokenName := fs.String("token-name", "CLI token", "User API token label")
+	tokenName := fs.String("token-name", "CLI token", "Bootstrap token label")
 	save := fs.Bool("save", true, "Save auth token to config")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
@@ -194,7 +194,7 @@ func authMe(args []string) {
 	fs := flag.NewFlagSet("auth me", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "User API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -231,7 +231,7 @@ func sourceList(args []string) {
 	fs := flag.NewFlagSet("source list", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "User API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -279,7 +279,7 @@ func sourceCreateDatabase(args []string) {
 	fs := flag.NewFlagSet("source create database", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "User API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
 	displayName := fs.String("display-name", "", "Database display name")
 	driver := fs.String("driver", "", "Database driver (sqlite|postgres|mysql|redis|mongo)")
 	host := fs.String("host", "", "Database host")
@@ -392,7 +392,7 @@ func sourceCreateProject(args []string) {
 	fs := flag.NewFlagSet("source create project", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "User API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
 	name := fs.String("name", "", "Project name")
 	clusterID := fs.String("project-cluster-id", "", "Project cluster ID")
 	timeZone := fs.String("timezone", "", "Project time zone")
@@ -449,7 +449,7 @@ func sourceSetup(args []string) {
 	fs := flag.NewFlagSet("source setup", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "User API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
 	id := fs.String("id", "", "Database source ID")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
@@ -500,13 +500,13 @@ func sourceTokenCreate(args []string) {
 	fs := flag.NewFlagSet("source token create", flag.ExitOnError)
 	configPathFlag := addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "User API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
 	sourceType := fs.String("source-type", "", "Source type (database|project)")
 	sourceID := fs.String("source-id", "", "Source ID")
-	name := fs.String("name", "CLI source token", "Token name")
-	read := fs.Bool("read", true, "Read permission (project tokens)")
-	write := fs.Bool("write", true, "Write permission (project tokens)")
-	save := fs.Bool("save", true, "Save source token in config")
+	name := fs.String("name", "CLI token", "Token name")
+	read := fs.Bool("read", true, "Read permission")
+	write := fs.Bool("write", true, "Write permission")
+	save := fs.Bool("save", true, "Save token in config source")
 	sourceName := fs.String("source-name", "", "Config source name to save")
 	activate := fs.Bool("activate", true, "Set saved source as active")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
@@ -530,7 +530,7 @@ func sourceTokenCreate(args []string) {
 	}
 
 	var response map[string]any
-	if err := client.BootstrapCreateSourceToken(context.Background(), payload, &response); err != nil {
+	if err := client.BootstrapCreateToken(context.Background(), payload, &response); err != nil {
 		exitError(err)
 	}
 
@@ -542,11 +542,11 @@ func sourceTokenCreate(args []string) {
 
 		baseURL := normalizeURL(*url)
 		tokenValue := nestedString(response, "data", "token", "value")
-		respSourceType := nestedString(response, "data", "source", "type")
-		respSourceID := nestedString(response, "data", "source", "id")
+		respSourceType := strings.TrimSpace(*sourceType)
+		respSourceID := strings.TrimSpace(*sourceID)
 
 		if tokenValue == "" || respSourceType == "" || respSourceID == "" {
-			exitError(errors.New("response did not include source token details"))
+			exitError(errors.New("response did not include token value"))
 		}
 
 		chosenName := strings.TrimSpace(*sourceName)
@@ -812,7 +812,7 @@ func sourceUsage() {
 	fmt.Println("  list       List available project/database sources")
 	fmt.Println("  create     Create a source (database/project)")
 	fmt.Println("  setup      Run database source setup")
-	fmt.Println("  token      Manage source tokens")
+	fmt.Println("  token      Legacy helper to create scoped token and save source")
 	fmt.Println("  use        Set active saved source in config")
 }
 
@@ -824,5 +824,5 @@ func sourceTokenUsage() {
 	fmt.Println("trifle source token <command> [options]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  create  Create a source token and optionally save it in config")
+	fmt.Println("  create  Create an organization token with source grant and optionally save it")
 }

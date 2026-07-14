@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/trifle-io/trifle-cli/internal/api"
-	triflestats "github.com/trifle-io/trifle_stats_go"
+	triflestats "github.com/trifle-io/trifle_stats_go/v2"
 )
 
 const mcpProtocolVersion = "2024-11-05"
@@ -29,7 +29,7 @@ func runMCP(args []string) {
 	fs := flag.NewFlagSet("mcp", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	addSourceFlag(fs, rc.SourceName)
-	opts := addCommonFlags(fs, &rc.Source)
+	opts := addCommonFlags(fs, &rc.Source, rc.Config)
 	driverOpts := addDriverFlags(fs, &rc.Source)
 	fs.Parse(args)
 
@@ -621,7 +621,7 @@ func listMetricsPayloadLocal(state *mcpState, args map[string]any) (map[string]a
 		return nil, err
 	}
 
-	result, err := triflestats.Values(state.Local.Config, systemMetricsKey, fromTime, toTime, granularity, true)
+	result, err := triflestats.Values(context.Background(), state.Local.Config, systemMetricsKey, fromTime, toTime, granularity, true)
 	if err != nil {
 		return nil, maybeSuggestSetup(err, state.Local.DriverName, state.Local.TableName)
 	}
@@ -672,7 +672,7 @@ func fetchSeriesPayloadLocal(state *mcpState, args map[string]any) (map[string]a
 		usedKey = systemMetricsKey
 	}
 
-	result, err := triflestats.Values(state.Local.Config, usedKey, fromTime, toTime, granularity, false)
+	result, err := triflestats.Values(context.Background(), state.Local.Config, usedKey, fromTime, toTime, granularity, false)
 	if err != nil {
 		return nil, maybeSuggestSetup(err, state.Local.DriverName, state.Local.TableName)
 	}
@@ -732,7 +732,7 @@ func queryPayloadLocal(state *mcpState, mode string, args map[string]any) (map[s
 		return nil, err
 	}
 
-	seriesResult, err := triflestats.Values(state.Local.Config, key, fromTime, toTime, granularity, false)
+	seriesResult, err := triflestats.Values(context.Background(), state.Local.Config, key, fromTime, toTime, granularity, false)
 	if err != nil {
 		return nil, maybeSuggestSetup(err, state.Local.DriverName, state.Local.TableName)
 	}

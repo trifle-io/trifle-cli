@@ -36,10 +36,10 @@ go build -o trifle .
 # Login (stores user token in config)
 trifle auth login --url https://app.trifle.io --email user@example.com --password '<password>'
 
-# Create a source and mint a source token
+# Create a source and mint a scoped organization token
 trifle source create project --name "Agent Project"
 trifle source list
-trifle source token create --source-type project --source-id <PROJECT_ID> --save --activate
+trifle token create --source-type project --source-id <PROJECT_ID> --save --activate
 
 # Optional: upload a local SQLite file when creating a database source
 trifle source create database --display-name "SQLite Upload" --driver sqlite --sqlite-file ./metrics.sqlite
