@@ -43,7 +43,7 @@ func tokenList(args []string) {
 	fs := flag.NewFlagSet("token list", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -71,17 +71,17 @@ func tokenCreate(args []string) {
 	fs := flag.NewFlagSet("token create", flag.ExitOnError)
 	configPathFlag := addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "API token (or TRIFLE_USER_TOKEN / config)")
-	name := fs.String("name", "CLI token", "Token name")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
+	name := fs.String("name", "CLI token", "Organization token name")
 	wildcardRead := fs.Bool("wildcard-read", false, "Wildcard read permission")
 	wildcardWrite := fs.Bool("wildcard-write", false, "Wildcard write permission")
 	sourceType := fs.String("source-type", "", "Optional source type (database|project)")
 	sourceID := fs.String("source-id", "", "Optional source ID grant")
 	read := fs.Bool("read", true, "Source read permission when --source-id is set")
 	write := fs.Bool("write", false, "Source write permission when --source-id is set")
-	save := fs.Bool("save", false, "Save token into config source")
-	sourceName := fs.String("source-name", "", "Config source name when saving")
-	activate := fs.Bool("activate", true, "Set saved source as active")
+	save := fs.Bool("save", false, "Save token globally in config")
+	sourceName := fs.String("source-name", "", "Optional config source name when saving a source grant")
+	activate := fs.Bool("activate", true, "Set the saved source as active")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -123,40 +123,21 @@ func tokenCreate(args []string) {
 
 		baseURL := normalizeURL(*url)
 		tokenValue := nestedString(response, "data", "token", "value")
-		resolvedSourceType := strings.TrimSpace(*sourceType)
-		resolvedSourceID := strings.TrimSpace(*sourceID)
-
 		if tokenValue == "" {
 			exitError(errors.New("response did not include token value"))
 		}
-		if resolvedSourceID == "" {
-			exitError(errors.New("--source-id is required when --save is enabled"))
-		}
-		if resolvedSourceType == "" {
-			exitError(errors.New("--source-type is required when --save is enabled"))
-		}
 
-		chosenName := strings.TrimSpace(*sourceName)
-		if chosenName == "" {
-			chosenName = defaultSavedSourceName(resolvedSourceType, resolvedSourceID)
-		}
-
-		if cfg.Auth == nil {
-			cfg.Auth = &authConfig{}
-		}
-		cfg.Auth.URL = baseURL
-		cfg.Auth.UserToken = strings.TrimSpace(*userToken)
-
-		cfg.Sources[chosenName] = sourceConfig{
-			Driver:     "api",
-			URL:        baseURL,
-			Token:      tokenValue,
-			SourceType: resolvedSourceType,
-			SourceID:   resolvedSourceID,
-		}
-
-		if *activate {
-			cfg.Source = chosenName
+		chosenName, err := saveOrganizationToken(
+			cfg,
+			baseURL,
+			tokenValue,
+			strings.TrimSpace(*sourceName),
+			strings.TrimSpace(*sourceType),
+			strings.TrimSpace(*sourceID),
+			*activate,
+		)
+		if err != nil {
+			exitError(err)
 		}
 
 		if err := saveConfigFile(path, cfg); err != nil {
@@ -164,12 +145,73 @@ func tokenCreate(args []string) {
 		}
 
 		attachConfigMeta(response, path)
-		attachSavedSourceMeta(response, chosenName, cfg.Source)
+		if chosenName != "" {
+			attachSavedSourceMeta(response, chosenName, cfg.Source)
+		}
 	}
 
 	if err := output.PrintJSON(os.Stdout, response); err != nil {
 		exitError(err)
 	}
+}
+
+func saveOrganizationToken(
+	cfg *cliConfig,
+	baseURL string,
+	tokenValue string,
+	sourceName string,
+	sourceType string,
+	sourceID string,
+	activate bool,
+) (string, error) {
+	if cfg == nil {
+		return "", errors.New("config is required")
+	}
+
+	tokenValue = strings.TrimSpace(tokenValue)
+	if tokenValue == "" {
+		return "", errors.New("token value is required")
+	}
+
+	sourceName = strings.TrimSpace(sourceName)
+	sourceType = strings.TrimSpace(sourceType)
+	sourceID = strings.TrimSpace(sourceID)
+	if sourceID == "" {
+		if sourceName != "" {
+			return "", errors.New("--source-id is required when --source-name is set")
+		}
+	}
+
+	if cfg.Auth == nil {
+		cfg.Auth = &authConfig{}
+	}
+	cfg.Auth.URL = normalizeURL(baseURL)
+	cfg.Auth.UserToken = tokenValue
+
+	if sourceID == "" {
+		return "", nil
+	}
+
+	if sourceName == "" {
+		sourceName = defaultSavedSourceName(sourceType, sourceID)
+	}
+	if cfg.Sources == nil {
+		cfg.Sources = map[string]sourceConfig{}
+	}
+
+	source := cfg.Sources[sourceName]
+	source.Driver = "api"
+	source.URL = normalizeURL(baseURL)
+	source.Token = ""
+	source.SourceType = sourceType
+	source.SourceID = sourceID
+	cfg.Sources[sourceName] = source
+
+	if activate {
+		cfg.Source = sourceName
+	}
+
+	return sourceName, nil
 }
 
 func tokenDelete(args []string) {
@@ -181,7 +223,7 @@ func tokenDelete(args []string) {
 	fs := flag.NewFlagSet("token delete", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "API token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	id := fs.String("id", "", "Token ID")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
@@ -210,6 +252,8 @@ func tokenUsage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  list    List organization tokens")
-	fmt.Println("  create  Create organization token")
+	fmt.Println("  create  Create a reusable organization token with source grants or wildcard access")
 	fmt.Println("  delete  Delete organization token")
+	fmt.Println()
+	fmt.Println("Source-bound API requests still require an explicit source ID header.")
 }

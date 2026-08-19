@@ -98,18 +98,19 @@ func addCommonFlags(fs *flag.FlagSet, cfg *sourceConfig, rootCfg *cliConfig) *co
 	}
 
 	fs.StringVar(&opts.BaseURL, "url", opts.BaseURL, "Trifle base URL (or TRIFLE_URL / config)")
-	fs.StringVar(&opts.Token, "token", opts.Token, "API token (or TRIFLE_TOKEN / config)")
-	fs.StringVar(&opts.SourceID, "source-id", opts.SourceID, "Source ID for API scope (or TRIFLE_SOURCE_ID / config)")
+	fs.StringVar(&opts.Token, "token", opts.Token, "Global organization API token (or TRIFLE_TOKEN / config)")
+	fs.StringVar(&opts.SourceID, "source-id", opts.SourceID, "Required source ID for API requests (or TRIFLE_SOURCE_ID / config)")
 	fs.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "HTTP timeout")
 	return opts
 }
 
 func ensureToken(opts *commonOptions, allowPrompt bool) error {
+	opts.Token = strings.TrimSpace(opts.Token)
 	if opts.Token != "" {
 		return nil
 	}
 	if !allowPrompt {
-		return fmt.Errorf("missing token: set --token, TRIFLE_TOKEN, or api.token in config")
+		return fmt.Errorf("missing token: set --token, TRIFLE_TOKEN, auth.user_token, or a legacy source token in config")
 	}
 
 	fmt.Fprint(os.Stderr, "Trifle token: ")
@@ -126,12 +127,21 @@ func ensureToken(opts *commonOptions, allowPrompt bool) error {
 }
 
 func newClient(opts *commonOptions) (*api.Client, error) {
+	if opts == nil {
+		return nil, errors.New("client options are required")
+	}
+
+	sourceID := strings.TrimSpace(opts.SourceID)
+	if sourceID == "" {
+		return nil, errors.New("missing source ID: set --source-id, TRIFLE_SOURCE_ID, or source_id in config")
+	}
+
 	client, err := api.New(opts.BaseURL, opts.Token, opts.Timeout)
 	if err != nil {
 		return nil, err
 	}
 
-	client.SetSourceID(opts.SourceID)
+	client.SetSourceID(sourceID)
 	return client, nil
 }
 
@@ -1740,18 +1750,18 @@ func usage() {
 	fmt.Println("Trifle CLI — time-series metrics")
 	fmt.Println()
 	fmt.Println("Read metrics:")
-	fmt.Println("  trifle metrics get --key event::logs --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
+	fmt.Println("  trifle metrics get --source-id <SOURCE_ID> --key event::logs --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
 	fmt.Println()
 	fmt.Println("Format series:")
-	fmt.Println("  trifle metrics timeline --key event::logs --value-path count --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
-	fmt.Println("  trifle metrics category --key event::logs --value-path duration --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
+	fmt.Println("  trifle metrics timeline --source-id <SOURCE_ID> --key event::logs --value-path count --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
+	fmt.Println("  trifle metrics category --source-id <SOURCE_ID> --key event::logs --value-path duration --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
 	fmt.Println()
 	fmt.Println("Aggregate series:")
-	fmt.Println("  trifle metrics aggregate --key event::logs --value-path count --aggregator sum --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
+	fmt.Println("  trifle metrics aggregate --source-id <SOURCE_ID> --key event::logs --value-path count --aggregator sum --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
 	fmt.Println()
 	fmt.Println("Submit data:")
-	fmt.Println("  trifle metrics push --key event::logs --values '{\"count\":1,\"duration\":2.4}'")
-	fmt.Println("  trifle metrics push --key event::logs --values '{\"count\":1}' --at 2026-01-01T12:00:00Z")
+	fmt.Println("  trifle metrics push --source-id <SOURCE_ID> --key event::logs --values '{\"count\":1,\"duration\":2.4}'")
+	fmt.Println("  trifle metrics push --source-id <SOURCE_ID> --key event::logs --values '{\"count\":1}' --at 2026-01-01T12:00:00Z")
 	fmt.Println()
 	fmt.Println("Local drivers:")
 	fmt.Println("  trifle metrics setup --driver sqlite --db ./stats.db")
@@ -1762,13 +1772,14 @@ func usage() {
 	fmt.Println("  trifle metrics get --driver redis --prefix trifle:metrics --key event::logs --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  auth           Authenticate and manage bootstrap access")
+	fmt.Println("  auth           Authenticate and manage organization access")
 	fmt.Println("  source         Manage Trifle App sources")
 	fmt.Println("  token          Manage organization API tokens")
 	fmt.Println("  metrics        Query or push metrics")
 	fmt.Println("  transponders   Manage transponders")
 	fmt.Println("  mcp            MCP server mode")
 	fmt.Println("  version        Print version")
+	printSourceBoundUsage()
 	fmt.Println()
 	fmt.Println("Run 'trifle <command> --help' for details.")
 	fmt.Println("Learn more at https://docs.trifle.io/trifle-cli")
@@ -1785,6 +1796,7 @@ func metricsUsage() {
 	fmt.Println("  category  Format a metric category breakdown")
 	fmt.Println("  push      Submit a metric payload")
 	fmt.Println("  setup     Initialize local storage (sqlite/postgres/mysql/mongo; redis is no-op)")
+	printSourceBoundUsage()
 }
 
 func transponderUsage() {
@@ -1795,6 +1807,15 @@ func transponderUsage() {
 	fmt.Println("  create  Create a transponder")
 	fmt.Println("  update  Update a transponder")
 	fmt.Println("  delete  Delete a transponder")
+	printSourceBoundUsage()
+}
+
+func printSourceBoundUsage() {
+	fmt.Println()
+	fmt.Println("Trifle App API:")
+	fmt.Println("  Reuse one organization token with multiple permitted sources.")
+	fmt.Println("  Metrics, transponders, and API-backed MCP require --source-id, TRIFLE_SOURCE_ID, or config source_id.")
+	fmt.Println("  Local database drivers do not require a source ID.")
 }
 
 func exitError(err error) {

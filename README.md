@@ -33,13 +33,18 @@ go build -o trifle .
 ### Bootstrap Trifle App access
 
 ```sh
-# Login (stores user token in config)
+# Login (stores one global organization token in config)
 trifle auth login --url https://app.trifle.io --email user@example.com --password '<password>'
 
-# Create a source and mint a scoped organization token
+# Create sources; the login token is global and is granted access to each new source
 trifle source create project --name "Agent Project"
 trifle source list
-trifle token create --source-type project --source-id <PROJECT_ID> --save --activate
+
+# Select the source on every source-bound API request
+trifle metrics get --source-id <PROJECT_ID> --key event::signup --granularity 1h
+
+# Optional: mint and save a token that can read across all sources
+trifle token create --wildcard-read --save
 
 # Optional: upload a local SQLite file when creating a database source
 trifle source create database --display-name "SQLite Upload" --driver sqlite --sqlite-file ./metrics.sqlite
@@ -49,6 +54,7 @@ trifle source create database --display-name "SQLite Upload" --driver sqlite --s
 
 ```sh
 trifle metrics get \
+  --source-id <PROJECT_ID> \
   --key event::signup \
   --from 2026-02-10T00:00:00Z \
   --to 2026-02-16T00:00:00Z \
@@ -94,7 +100,10 @@ trifle metrics get --driver redis --prefix trifle:metrics --key event::signup \
 Run Trifle CLI as an MCP server so AI agents (Claude, GPT, etc.) can query and track metrics:
 
 ```sh
-trifle mcp serve
+TRIFLE_URL=https://app.trifle.io \
+TRIFLE_TOKEN=<ORG_TOKEN> \
+TRIFLE_SOURCE_ID=<SOURCE_ID> \
+trifle mcp
 ```
 
 This enables AI agents to read your analytics, track their own token/cost usage, and generate insights through the standard MCP protocol.

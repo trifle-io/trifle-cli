@@ -75,35 +75,35 @@ func (c *Client) SetSourceID(sourceID string) {
 }
 
 func (c *Client) GetMetrics(ctx context.Context, params map[string]string, out any) error {
-	return c.doJSON(ctx, http.MethodGet, apiBasePath+"/metrics", params, out)
+	return c.doSourceJSON(ctx, http.MethodGet, apiBasePath+"/metrics", params, out)
 }
 
 func (c *Client) PostMetrics(ctx context.Context, payload any, out any) error {
-	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/metrics", payload, out)
+	return c.doSourceJSON(ctx, http.MethodPost, apiBasePath+"/metrics", payload, out)
 }
 
 func (c *Client) QueryMetrics(ctx context.Context, payload any, out any) error {
-	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/metrics/query", payload, out)
+	return c.doSourceJSON(ctx, http.MethodPost, apiBasePath+"/metrics/query", payload, out)
 }
 
 func (c *Client) GetSource(ctx context.Context, out any) error {
-	return c.doJSON(ctx, http.MethodGet, apiBasePath+"/source", nil, out)
+	return c.doSourceJSON(ctx, http.MethodGet, apiBasePath+"/source", nil, out)
 }
 
 func (c *Client) GetTransponders(ctx context.Context, out any) error {
-	return c.doJSON(ctx, http.MethodGet, apiBasePath+"/transponders", nil, out)
+	return c.doSourceJSON(ctx, http.MethodGet, apiBasePath+"/transponders", nil, out)
 }
 
 func (c *Client) CreateTransponder(ctx context.Context, payload any, out any) error {
-	return c.doJSON(ctx, http.MethodPost, apiBasePath+"/transponders", payload, out)
+	return c.doSourceJSON(ctx, http.MethodPost, apiBasePath+"/transponders", payload, out)
 }
 
 func (c *Client) UpdateTransponder(ctx context.Context, id string, payload any, out any) error {
-	return c.doJSON(ctx, http.MethodPut, apiBasePath+"/transponders/"+id, payload, out)
+	return c.doSourceJSON(ctx, http.MethodPut, apiBasePath+"/transponders/"+id, payload, out)
 }
 
 func (c *Client) DeleteTransponder(ctx context.Context, id string, out any) error {
-	return c.doJSON(ctx, http.MethodDelete, apiBasePath+"/transponders/"+id, nil, out)
+	return c.doSourceJSON(ctx, http.MethodDelete, apiBasePath+"/transponders/"+id, nil, out)
 }
 
 func (c *Client) BootstrapSignup(ctx context.Context, payload any, out any) error {
@@ -220,6 +220,13 @@ func (c *Client) BootstrapUpdateToken(ctx context.Context, id string, payload an
 
 func (c *Client) BootstrapDeleteToken(ctx context.Context, id string, out any) error {
 	return c.doJSON(ctx, http.MethodDelete, apiBasePath+"/bootstrap/tokens/"+id, nil, out)
+}
+
+func (c *Client) doSourceJSON(ctx context.Context, method, path string, payload any, out any) error {
+	if strings.TrimSpace(c.sourceID) == "" {
+		return fmt.Errorf("source ID is required for %s", path)
+	}
+	return c.doJSON(ctx, method, path, payload, out)
 }
 
 func (c *Client) doJSON(ctx context.Context, method, path string, payload any, out any) error {

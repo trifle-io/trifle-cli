@@ -76,8 +76,8 @@ func authSignup(args []string) {
 	password := fs.String("password", "", "Account password")
 	name := fs.String("name", "", "Optional user name")
 	orgName := fs.String("org-name", "", "Optional organization name to create")
-	tokenName := fs.String("token-name", "CLI token", "Bootstrap token label")
-	save := fs.Bool("save", true, "Save auth token to config")
+	tokenName := fs.String("token-name", "CLI token", "Organization API token label")
+	save := fs.Bool("save", true, "Save organization API token to config")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -139,8 +139,8 @@ func authLogin(args []string) {
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
 	email := fs.String("email", "", "Account email")
 	password := fs.String("password", "", "Account password")
-	tokenName := fs.String("token-name", "CLI token", "Bootstrap token label")
-	save := fs.Bool("save", true, "Save auth token to config")
+	tokenName := fs.String("token-name", "CLI token", "Organization API token label")
+	save := fs.Bool("save", true, "Save organization API token to config")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -194,7 +194,7 @@ func authMe(args []string) {
 	fs := flag.NewFlagSet("auth me", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -204,7 +204,7 @@ func authMe(args []string) {
 	}
 	token := strings.TrimSpace(*userToken)
 	if token == "" {
-		exitError(errors.New("missing user token: set --user-token, TRIFLE_USER_TOKEN, or auth.user_token in config"))
+		exitError(errors.New("missing organization token: set --user-token, TRIFLE_USER_TOKEN, or auth.user_token in config"))
 	}
 
 	client, err := api.New(baseURL, token, *timeout)
@@ -231,7 +231,7 @@ func sourceList(args []string) {
 	fs := flag.NewFlagSet("source list", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
 
@@ -279,7 +279,7 @@ func sourceCreateDatabase(args []string) {
 	fs := flag.NewFlagSet("source create database", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	displayName := fs.String("display-name", "", "Database display name")
 	driver := fs.String("driver", "", "Database driver (sqlite|postgres|mysql|redis|mongo)")
 	host := fs.String("host", "", "Database host")
@@ -392,7 +392,7 @@ func sourceCreateProject(args []string) {
 	fs := flag.NewFlagSet("source create project", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	name := fs.String("name", "", "Project name")
 	clusterID := fs.String("project-cluster-id", "", "Project cluster ID")
 	timeZone := fs.String("timezone", "", "Project time zone")
@@ -449,7 +449,7 @@ func sourceSetup(args []string) {
 	fs := flag.NewFlagSet("source setup", flag.ExitOnError)
 	addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	id := fs.String("id", "", "Database source ID")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
 	fs.Parse(args)
@@ -500,13 +500,13 @@ func sourceTokenCreate(args []string) {
 	fs := flag.NewFlagSet("source token create", flag.ExitOnError)
 	configPathFlag := addConfigFlag(fs, rc.ConfigPath)
 	url := fs.String("url", defaultBootstrapURL(rc), "Trifle base URL (or TRIFLE_URL / config)")
-	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Bootstrap token (or TRIFLE_USER_TOKEN / config)")
+	userToken := fs.String("user-token", defaultUserToken(rc.Config), "Organization API token (or TRIFLE_USER_TOKEN / config)")
 	sourceType := fs.String("source-type", "", "Source type (database|project)")
 	sourceID := fs.String("source-id", "", "Source ID")
-	name := fs.String("name", "CLI token", "Token name")
+	name := fs.String("name", "CLI token", "Organization token name")
 	read := fs.Bool("read", true, "Read permission")
 	write := fs.Bool("write", true, "Write permission")
-	save := fs.Bool("save", true, "Save token in config source")
+	save := fs.Bool("save", true, "Save organization token globally and save the source profile")
 	sourceName := fs.String("source-name", "", "Config source name to save")
 	activate := fs.Bool("activate", true, "Set saved source as active")
 	timeout := fs.Duration("timeout", 30*time.Second, "HTTP timeout")
@@ -549,27 +549,17 @@ func sourceTokenCreate(args []string) {
 			exitError(errors.New("response did not include token value"))
 		}
 
-		chosenName := strings.TrimSpace(*sourceName)
-		if chosenName == "" {
-			chosenName = defaultSavedSourceName(respSourceType, respSourceID)
-		}
-
-		if cfg.Auth == nil {
-			cfg.Auth = &authConfig{}
-		}
-		cfg.Auth.URL = baseURL
-		cfg.Auth.UserToken = strings.TrimSpace(*userToken)
-
-		cfg.Sources[chosenName] = sourceConfig{
-			Driver:     "api",
-			URL:        baseURL,
-			Token:      tokenValue,
-			SourceType: respSourceType,
-			SourceID:   respSourceID,
-		}
-
-		if *activate {
-			cfg.Source = chosenName
+		chosenName, err := saveOrganizationToken(
+			cfg,
+			baseURL,
+			tokenValue,
+			strings.TrimSpace(*sourceName),
+			respSourceType,
+			respSourceID,
+			*activate,
+		)
+		if err != nil {
+			exitError(err)
 		}
 
 		if err := saveConfigFile(path, cfg); err != nil {
@@ -638,7 +628,7 @@ func bootstrapClient(rawURL, rawUserToken string, timeout time.Duration) (*api.C
 	}
 	userToken := strings.TrimSpace(rawUserToken)
 	if userToken == "" {
-		return nil, errors.New("missing user token: set --user-token, TRIFLE_USER_TOKEN, or auth.user_token in config")
+		return nil, errors.New("missing organization token: set --user-token, TRIFLE_USER_TOKEN, or auth.user_token in config")
 	}
 	return api.New(baseURL, userToken, timeout)
 }
@@ -800,8 +790,8 @@ func authUsage() {
 	fmt.Println("trifle auth <command> [options]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  signup  Create an account and issue a user API token")
-	fmt.Println("  login   Log in with email/password and issue a user API token")
+	fmt.Println("  signup  Create an account and issue a global organization API token")
+	fmt.Println("  login   Log in with email/password and issue a global organization API token")
 	fmt.Println("  me      Show authenticated user context")
 }
 
@@ -812,7 +802,7 @@ func sourceUsage() {
 	fmt.Println("  list       List available project/database sources")
 	fmt.Println("  create     Create a source (database/project)")
 	fmt.Println("  setup      Run database source setup")
-	fmt.Println("  token      Legacy helper to create scoped token and save source")
+	fmt.Println("  token      Legacy helper to create an organization token and save a source profile")
 	fmt.Println("  use        Set active saved source in config")
 }
 
@@ -824,5 +814,5 @@ func sourceTokenUsage() {
 	fmt.Println("trifle source token <command> [options]")
 	fmt.Println()
 	fmt.Println("Commands:")
-	fmt.Println("  create  Create an organization token with source grant and optionally save it")
+	fmt.Println("  create  Create an organization token with a source grant and save its source profile")
 }

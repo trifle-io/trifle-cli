@@ -13,6 +13,44 @@ import (
 	"time"
 )
 
+func TestClientSendsSourceIDHeader(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Trifle-Source-Id"); got != "source-123" {
+			t.Errorf("source header = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer server.Close()
+
+	client, err := New(server.URL, "global-token", 5*time.Second)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	client.SetSourceID("  source-123  ")
+
+	var response map[string]any
+	if err := client.GetMetrics(context.Background(), nil, &response); err != nil {
+		t.Fatalf("GetMetrics error: %v", err)
+	}
+}
+
+func TestSourceRequestRequiresSourceID(t *testing.T) {
+	t.Parallel()
+
+	client, err := New("https://app.trifle.io", "global-token", 5*time.Second)
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+
+	err = client.GetMetrics(context.Background(), nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "source ID is required") {
+		t.Fatalf("expected source ID validation error, got %v", err)
+	}
+}
+
 func TestBootstrapCreateDatabaseMultipart(t *testing.T) {
 	t.Parallel()
 
