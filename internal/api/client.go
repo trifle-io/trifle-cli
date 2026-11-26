@@ -173,26 +173,16 @@ func (c *Client) BootstrapCreateDatabaseMultipart(
 		return fmt.Errorf("finalize multipart payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(
+	req, err := c.newRequest(
 		ctx,
 		http.MethodPost,
-		c.baseURL+apiBasePath+"/bootstrap/databases",
+		apiBasePath+"/bootstrap/databases",
 		&body,
 	)
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return err
 	}
 
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-	req.Header.Set("User-Agent", cliUserAgent)
-	if c.host != "" {
-		req.Header.Set("X-Trifle-Client-Host", c.host)
-	}
-	if c.sourceID != "" {
-		req.Header.Set("X-Trifle-Source-Id", c.sourceID)
-	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	return c.doRequest(req, out)
@@ -223,28 +213,36 @@ func (c *Client) BootstrapDeleteToken(ctx context.Context, id string, out any) e
 }
 
 func (c *Client) doSourceJSON(ctx context.Context, method, path string, payload any, out any) error {
-	if strings.TrimSpace(c.sourceID) == "" {
-		return fmt.Errorf("source ID is required for %s", path)
+	if err := c.requireSourceID(path); err != nil {
+		return err
 	}
 	return c.doJSON(ctx, method, path, payload, out)
 }
 
-func (c *Client) doJSON(ctx context.Context, method, path string, payload any, out any) error {
-	fullURL := c.baseURL + path
+func (c *Client) requireSourceID(path string) error {
+	if c.sourceID == "" {
+		return fmt.Errorf("source ID is required for %s", path)
+	}
+	return nil
+}
 
+func (c *Client) doJSON(ctx context.Context, method, path string, payload any, out any) error {
 	var body io.Reader
 	if method == http.MethodGet {
-		if params, ok := payload.(map[string]string); ok && len(params) > 0 {
-			query := url.Values{}
+		var query url.Values
+		switch params := payload.(type) {
+		case url.Values:
+			query = params
+		case map[string]string:
+			query = make(url.Values, len(params))
 			for key, value := range params {
-				if value == "" {
-					continue
+				if value != "" {
+					query.Set(key, value)
 				}
-				query.Set(key, value)
 			}
-			if encoded := query.Encode(); encoded != "" {
-				fullURL += "?" + encoded
-			}
+		}
+		if encoded := query.Encode(); encoded != "" {
+			path += "?" + encoded
 		}
 	} else if payload != nil {
 		encoded, err := json.Marshal(payload)
@@ -254,9 +252,20 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any, o
 		body = bytes.NewReader(encoded)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, body)
+	req, err := c.newRequest(ctx, method, path, body)
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return err
+	}
+	if method != http.MethodGet {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return c.doRequest(req, out)
+}
+
+func (c *Client) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
 	}
 
 	if c.token != "" {
@@ -269,27 +278,19 @@ func (c *Client) doJSON(ctx context.Context, method, path string, payload any, o
 	if c.sourceID != "" {
 		req.Header.Set("X-Trifle-Source-Id", c.sourceID)
 	}
-	if method != http.MethodGet {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	return c.doRequest(req, out)
+	return req, nil
 }
 
 func (c *Client) doRequest(req *http.Request, out any) error {
-	resp, err := c.http.Do(req)
+	resp, err := c.openResponse(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read response: %w", err)
-	}
-
-	if resp.StatusCode >= 400 {
-		return &Error{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(responseBody))}
 	}
 
 	if out == nil {
@@ -307,6 +308,23 @@ func (c *Client) doRequest(req *http.Request, out any) error {
 	}
 
 	return nil
+}
+
+func (c *Client) openResponse(req *http.Request) (*http.Response, error) {
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	if resp.StatusCode < 400 {
+		return resp, nil
+	}
+
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+	return nil, &Error{StatusCode: resp.StatusCode, Body: strings.TrimSpace(string(body))}
 }
 
 func normalizeBaseURL(baseURL string) string {

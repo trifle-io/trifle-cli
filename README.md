@@ -1,6 +1,6 @@
 # Trifle CLI
 
-Query and push time-series metrics from your terminal. Works with [Trifle App](https://trifle.io/product/app) via API or directly against local databases (SQLite, Postgres, MySQL, Redis, MongoDB). Ships an MCP server mode for AI agent integration.
+Query and push time-series metrics from your terminal through [Trifle App](https://trifle.io/product/app) or directly against local databases (SQLite, Postgres, MySQL, Redis, MongoDB). Search execution traces and download attachments from Trifle App. Ships an MCP server mode for AI agent integration.
 
 Part of the [Trifle](https://trifle.io) ecosystem.
 
@@ -60,6 +60,28 @@ trifle metrics get \
   --to 2026-02-16T00:00:00Z \
   --granularity 1h
 ```
+
+### Read traces from Trifle App
+
+Use an active database source configured for Traces and an organization API token with read access to that source. With a management token, `trifle source list` shows database sources with `capabilities.traces` set to `true`.
+
+```sh
+export TRIFLE_URL=https://app.trifle.io
+export TRIFLE_TOKEN='<ORG_TOKEN>'
+export TRIFLE_SOURCE_ID='<DATABASE_SOURCE_ID>'
+
+trifle traces search --path jobs/calculation --tag customer:42 --tag scheduled --tag-mode all --limit 10
+trifle traces get --reference calc-42
+trifle traces entries --reference calc-42 --part 1 --row 0 --limit 25
+trifle traces attachments --reference calc-42
+trifle traces download --reference calc-42 --attachment-id AAAAAAAAAAEAAAAAAAAAAg --output ./result.txt
+```
+
+Search returns one JSON page in newest-first order. Use `--from` for an inclusive start bound and `--to` for an exclusive end bound. Omit both to search the full trace index. Pass `pagination.next_cursor` as `--cursor` with the same source and filters to read the next page.
+
+Entry pages continue at `pagination.next.part` and `pagination.next.row`, which you pass as `--part` and `--row`. Attachment pages continue at `pagination.next_after_part`, which you pass as `--after-part`. Continue through empty pages when a continuation value is present. A `null` continuation marks the end.
+
+Use the attachment `id` from an entry or the attachment list to download the file. Choose a new path with `--output` or use `--output -` to stream bytes to stdout. Increase `--timeout` for downloads that need more than the default 30 seconds.
 
 ### Track metrics locally
 
@@ -142,3 +164,11 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/trifle
 ## License
 
 Available under the [Elastic License 2.0](https://www.elastic.co/licensing/elastic-license). See [LICENSE](LICENSE) for details.
+
+## Testing unreleased escaped paths
+
+The escaped-path changes are integrated against pushed Git commit `6ead1ebac6423758abd94b4b56ee423833bc34e4`, including the path-discovery correction. `go.mod` pins Go's resolved pseudo-version `v2.7.1-0.20260912090545-6ead1ebac642`; no package release is required.
+
+Run `GOWORK=off go test ./...` to verify the fetched dependency without a local override. For future coordinated local changes, create a temporary Go workspace containing this repository and `../trifle_stats_go`, then run `GOWORK=/absolute/path/to/go.work go test ./...`. Always repeat verification with `GOWORK=off` after updating to an actual pushed commit or release.
+
+Use `--value-path 'jobs.test\.rb'` for a dotted field and `'jobs.\*'` for a literal star on commands supporting value paths. JSON payloads require two backslashes, for example `--values '{"jobs.test\\.rb":1}'`. See [Value paths](https://docs.trifle.io/trifle-stats-go/guides/paths).

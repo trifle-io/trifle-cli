@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	triflestats "github.com/trifle-io/trifle_stats_go/v2"
@@ -152,7 +151,7 @@ func sortedKeys(keys map[string]struct{}) []string {
 }
 
 func ensureNoWildcards(value string) error {
-	if strings.Contains(value, "*") {
+	if triflestats.PathHasWildcard(value) {
 		return fmt.Errorf("wildcards are not supported in value_path %q", value)
 	}
 	return nil

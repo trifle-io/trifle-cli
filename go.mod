@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/redis/go-redis/v9 v9.17.3
-	github.com/trifle-io/trifle_stats_go/v2 v2.5.0
+	github.com/trifle-io/trifle_stats_go/v2 v2.7.1-0.20260912090545-6ead1ebac642
 	go.mongodb.org/mongo-driver v1.17.9
 	gopkg.in/yaml.v3 v3.0.1
 )

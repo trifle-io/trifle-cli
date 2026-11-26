@@ -49,6 +49,8 @@ func main() {
 		runToken(os.Args[2:])
 	case "metrics":
 		runMetrics(os.Args[2:])
+	case "traces":
+		runTraces(os.Args[2:])
 	case "transponders":
 		runTransponders(os.Args[2:])
 	case "mcp":
@@ -1290,7 +1292,7 @@ func summarizeValuePaths(values []map[string]any) []keysEntry {
 		if len(row) == 0 {
 			continue
 		}
-		packed := triflestats.Pack(row)
+		packed := triflestats.PackTree(row)
 		for key := range packed {
 			counts[key]++
 		}
@@ -1747,7 +1749,7 @@ func usage() {
 		fmt.Println(color + line + reset)
 	}
 	fmt.Println()
-	fmt.Println("Trifle CLI — time-series metrics")
+	fmt.Println("Trifle CLI — time-series metrics and execution traces")
 	fmt.Println()
 	fmt.Println("Read metrics:")
 	fmt.Println("  trifle metrics get --source-id <SOURCE_ID> --key event::logs --from 2026-01-01T00:00:00Z --to 2026-01-31T00:00:00Z --granularity 1d")
@@ -1776,6 +1778,7 @@ func usage() {
 	fmt.Println("  source         Manage Trifle App sources")
 	fmt.Println("  token          Manage organization API tokens")
 	fmt.Println("  metrics        Query or push metrics")
+	fmt.Println("  traces         Search traces, read entries, and download attachments")
 	fmt.Println("  transponders   Manage transponders")
 	fmt.Println("  mcp            MCP server mode")
 	fmt.Println("  version        Print version")
@@ -1814,7 +1817,7 @@ func printSourceBoundUsage() {
 	fmt.Println()
 	fmt.Println("Trifle App API:")
 	fmt.Println("  Reuse one organization token with multiple permitted sources.")
-	fmt.Println("  Metrics, transponders, and API-backed MCP require --source-id, TRIFLE_SOURCE_ID, or config source_id.")
+	fmt.Println("  Metrics, traces, transponders, and API-backed MCP require --source-id, TRIFLE_SOURCE_ID, or config source_id.")
 	fmt.Println("  Local database drivers do not require a source ID.")
 }
 
